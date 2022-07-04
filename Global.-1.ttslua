@@ -106,7 +106,7 @@ actionList = {
     },
 }
 function convertActorMoves(actor, command)--convert player commands into coordinates to be evaluated
-    log(command, 'convertActorMoves')
+    --log(command, 'convertActorMoves')
     --log(actor, 'Vector')
     local vec1 = Vector(playerInfo[actor].position)
     local vec2 = Vector(actionList[command[1]][command[2]])
@@ -117,9 +117,7 @@ function isMoveLegal(actor1, actor2, iteration) --checks to see if the Actor wil
 
     local actor1NewPosition = convertActorMoves(actor1[1],actor1[2][iteration])
     local actor2NewPosition = convertActorMoves(actor2[1],actor2[2][iteration])
-    if actor1[1] == 'White' then
-    end
-    return actor1NewPosition ~= actor2NewPosition and actor1NewPosition ~= playerInfo[actor2[1]].position
+    return actor1NewPosition ~= actor2NewPosition and (actor1NewPosition ~= playerInfo[actor2[1]].position or actor2NewPosition ~= playerInfo[actor1[1]].position)
 end
 
 function applyMoves(moveData, iteration)
