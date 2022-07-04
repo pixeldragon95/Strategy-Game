@@ -1,0 +1,33 @@
+<Defaults>
+    <Button fontSize="24" colors="White|Grey|White|Black" onClick="cmdInput" fontStyle="bold"/>
+    <ToggleButton fontSize="24" colors="White|Grey|White|Black" onClick="cmdInput" fontStyle="bold"/>
+    <Button class="White" color="White"/>
+    <Button class="Red" color="Red"/>
+    <Button class="Orange" color="Orange"/>
+    <Button class="Yellow" color="Yellow"/>
+    <Button class="Green" color="Green"/>
+    <Button class="Blue" color="Blue"/>
+    <Button class="Purple" color="Purple"/>
+    <Button class="Pink" color="Pink"/>
+    <Text color="White" fontSize="24" alignment="MiddleLeft"/>
+    <TableLayout cellBackgroundColor="rgba(1,1,0,0)"/>
+</Defaults>
+<Panel
+    height="400"
+    width="300"
+    color="rgba(0.1,0.1,0.1,0.6)"
+    allowDragging="true"
+    returnToOriginalPositionWhenReleased="false"
+    rectAlignment="MiddleRight"
+    >
+    <VerticalLayout>
+        <Text id="White" color="White">Moves Left White: 5</Text>
+        <Text id="Red" color="Red">Moves Left Red: N/A</Text>
+        <Text id="Orange" color="Orange">Moves Left Orange: N/A</Text>
+        <Text id="Yellow" color="Yellow">Moves Left Yellow: N/A</Text>
+        <Text id="Green" color="Green">Moves Left Green: N/A</Text>
+        <Text id="Blue" color="Blue">Moves Left Blue: N/A</Text>
+        <Text id="Purple" color="Purple">Moves Left Purple: N/A</Text>
+        <Text id="Pink" color="Pink">Moves Left Pink: N/A</Text>
+    </VerticalLayout>
+</Panel>
