@@ -1,0 +1,329 @@
+--note to self, automate playerInfo to autopopulate upon join
+--Also make a disconnect function at some point
+playerInfo = {}
+
+function onLoad(save_state)
+end
+
+function onScriptingButtonDown(index, player_color)
+    if index == 7 then
+        log('Beginning Move Check')
+        checkMoves()
+        return false
+    elseif index == 8 then
+        initializeActors()
+    end
+end
+
+function onChat(message, player)
+    local test = {}
+    test[player.color] = {1,2,3}
+    test['where'] = {4,5,6}
+    if message == 'recalibrate' then
+        playerInfo['White'].position = roundVector(playerInfo['White'].object.getPosition())
+        playerInfo['Blue'].position = roundVector(playerInfo['Blue'].object.getPosition())
+        return false
+    elseif message == 'test' then
+        for k,v in pairs(test) do
+            --print(k..'\n')
+            local var, val = next(test,k)
+            if next(test,k) == nil then
+                var, val = next(test)
+            end
+            print(var)
+        end
+    end
+end
+
+--Actors are the player tokens
+boardSize = 7
+positions = {
+    White = {boardSize, 1, -boardSize},
+    Blue = {boardSize, 1, boardSize},
+    Red = {-boardSize, 1, -boardSize},
+    Green = {-boardSize, 1, boardSize},
+}
+function initializeActors()--spawn and initialize the Actors for each seated player
+    local seatedPlayers = getSeatedPlayers()
+    for k,v in pairs(seatedPlayers) do
+        local obj = spawnObject({
+            type = "Figurine_Knil",
+            position = positions[v],
+            scale = {1,1,1},
+            sound = false,
+            callback_function = function(object) object.setColorTint(v) object.setLuaScript(script) end
+        })
+        playerInfo[v] = {position=obj.getPosition(),object=obj,movesLeft=totalMoves,commandMode='move'}
+        playerMoves[v] = {}
+        playerMovesCopy[v] = {}
+        setStartUI(v)
+    end
+end
+
+playerMoves = {}
+playerMovesCopy = {}
+
+speed = 2
+actionList = {
+    move = {
+        stay={0,0,0},
+        northWest={-speed,0,speed},
+        north={0,0,speed},
+        northEast={speed,0,speed},
+        east={speed,0,0},
+        southEast={speed,0,-speed},
+        south={0,0,-speed},
+        southWest={-speed,0,-speed},
+        west={-speed,0,0}
+    },
+    attk1 = {
+        stay={0,0,0},
+        northWest={0,0,0},
+        north={0,0,0},
+        northEast={0,0,0},
+        east={0,0,0},
+        southEast={0,0,0},
+        south={0,0,0},
+        southWest={0,0,0},
+        west={0,0,0}
+    },
+    attk2 = {
+        stay={0,0,0},
+        northWest={-speed,0,speed},
+        north={0,0,speed},
+        northEast={speed,0,speed},
+        east={speed,0,0},
+        southEast={speed,0,-speed},
+        south={0,0,-speed},
+        southWest={-speed,0,-speed},
+        west={-speed,0,0}
+    },
+}
+function convertActorMoves(actor, command)--convert player commands into coordinates to be evaluated
+    log(command, 'convertActorMoves')
+    log(actor, 'Vector')
+    local vec1 = Vector(playerInfo[actor].position)
+    local vec2 = Vector(actionList[command[1]][command[2]])
+    return vec1 + vec2
+end
+
+function isMoveLegal(actor1, actor2, iteration) --checks to see if the Actor will collide with another initialized object
+    local actor1NewPosition = convertActorMoves(actor1[1],actor1[iteration])
+    local actor2NewPosition = convertActorMoves(actor2[1],actor2[iteration])
+    if actor1[1] == 'White' then
+    end
+    return actor1NewPosition ~= actor2NewPosition and actor1NewPosition ~= playerInfo[actor2[1]].position
+end
+
+function applyMoves(moveData, iteration)
+    for k,v in pairs(moveData) do
+        playerInfo[moveData[k]].position = convertActorMoves(moveData[k][1], moveData[k][iteration])
+    end
+end
+
+totalMoves = 5
+function checkMoves()--loops over the moves made by the players and the list of initialized objects to see if there are any collisions
+    log('Array Cloned')
+    log(playerMoves)
+    for i=1,totalMoves do
+        for k,v in pairs(playerMoves) do
+            log('Loop Iterated: '..k)
+            local var, val = next(playerMoves,k)
+            log(var, 'var')
+            log(val, 'val')
+            if next(playerMoves,k) == nil then
+                var, val = next(playerMoves)
+            end
+            if not isMoveLegal(playerMoves[k],playerMoves[next],i) then
+                playerMovesCopy[k][i] = 'stay'
+            end
+        end
+        applyMoves(playerMovesCopy,i)
+    end
+    controlActors()
+end
+
+function controlActors()--sends confirmed actions to the Actors
+    for k,v in pairs(playerMovesCopy) do
+        playerInfo[playerMovesCopy[k][1]].object.call('getCall',v)
+        Wait.time(function()
+        playerInfo[playerMovesCopy[k][1]].movesLeft = 5
+        Global.UI.setValue(playerMovesCopy[k][1],'Moves Left '..playerMovesCopy[k][1]..': '..playerInfo[playerMovesCopy[k][1]].movesLeft)
+        end, 5, 1)
+    end
+end
+
+function cmdInput(player,_,idValue)
+    local actor = playerInfo[player.color]
+    if idValue == 'move' or idValue == 'atk1' or idValue == 'atk2' then
+        actor.commandMode = idValue
+        return
+    end
+    for k,v in pairs(playerMoves) do
+        if k == player.color and actor.movesLeft > 0 then
+            log(playerMoves)
+            table.insert(playerMoves[k],{actor.commandMode,idValue})
+            table.insert(playerMovesCopy[k],{actor.commandMode,idValue})
+            actor.movesLeft = actor.movesLeft - 1
+            Global.UI.setValue(player.color,'Moves Left '..player.color..': '..actor.movesLeft)
+            break
+        end
+    end
+end
+
+-------------Player UI Interactions-------------
+
+--Sets the UIs to be non-interactable while the actors are moving
+function playerWait()
+    Global.UI.setAttribute('start','interactable',false)
+    enableMoves(false)
+end
+
+function createTable(gridSize,attributes)
+    local xmlTable = {tag='TableLayout',children={}}
+    if attributes ~= nil then xmlTable.attributes = attributes end
+    for i=1,gridSize[1] do
+        table.insert(xmlTable.children,{tag='Row',children={}})
+        for k=1,gridSize[2] do
+            table.insert(xmlTable.children[i].children,{tag='Cell',children={}})
+        end
+    end
+    return xmlTable
+end
+
+function createXmlElement(element,attributes)
+    local xmlTable = {tag=element,children={}}
+    if attributes ~= nil then xmlTable.attributes = attributes end
+    return xmlTable
+end
+
+buttonData = {
+    {'North West','North','North East'},
+    {'West','Stay','East'},
+    {'South West','South','South East'},
+}
+buttonLabels = {
+    {{id='northWest'},{id='north'},{id='northEast'},},
+    {{id='west'},{id='stay'},{id='east'},},
+    {{id='southWest'},{id='south'},{id='southEast'},},
+}
+toggleButtons = {
+    {'Move',{id='move'}},
+    {'Slice',{id='atk1'}},
+    {'Lunge',{id='atk2'}},
+}
+
+function setStartUI(color)
+    local size = {3,3}
+    local newXML = createTable({size[1],size[2]},{id=color..'Direction',visibility=color,rectAlignment="LowerRight",height=240,width=450})
+    local newToggle = createXmlElement('ToggleGroup',{id=color..'Actions',visibility=color,height=240,width=100,rectAlignment="LowerRight",offsetXY='-450,0'})
+    newToggle.children = createXmlElement('VerticalLayout')
+    for i=1,size[1] do
+        for k=1,size[2] do
+            buttonLabels[i][k].class = color
+            newXML.children[i].children[k].children = {tag='Button',attributes=buttonLabels[i][k],value=buttonData[i][k]}
+        end
+        toggleButtons[i][2].color = color
+        table.insert(newToggle.children.children,{tag='ToggleButton',attributes=toggleButtons[i][2],value=toggleButtons[i][1]})
+    end
+    local oldTable = Global.UI.getXmlTable()
+    table.insert(oldTable,newToggle)
+    table.insert(oldTable,newXML)
+    Global.UI.setXmlTable(oldTable)
+end
+
+-------------Utility Functions-------------
+
+function noteDebug(data,index)
+    local note = Notes.getNotebookTabs()[index].body
+    Notes.editNotebookTab({
+        index = index-1,
+        title = Debug,
+        body  = note..dump(data)..'\n',
+        color = 'Grey',
+    })
+end
+
+function dump(o)
+    if type(o) == 'table' then
+        local s = '{ '
+        for k,v in pairs(o) do
+            if type(k) ~= 'number' then k = '"'..k..'"' end
+            s = s .. '['..k..'] = ' .. dump(v) .. ','
+        end
+        return s .. '} '
+    else
+        return tostring(o)
+    end
+end
+
+function roundVector(vec)
+    x, y, z = vec:get()
+    x=round(x)
+    z=round(z)
+    return vec:set(x,0,z)
+end
+
+function round(num, numDecimalPlaces)
+    local mult = 10^(numDecimalPlaces or 0)
+    return math.floor(num * mult + 0.5) / mult
+end
+
+function match(str, word)
+    return string.match(string.lower(str), string.lower(word)) == string.lower(word)
+end
+
+script = [[
+function onLoad(save_state)
+    myPos = self.getPosition()
+end
+
+function getCall(orders)
+    table.remove(orders,1)
+    local i = 1
+    Wait.time (function()
+        myPos = convertOrders(orders[i])
+        self.setPositionSmooth(myPos)
+        i=i+1
+    end, 1, ]]..totalMoves..[[)
+end
+
+speed = ]]..speed..'\n'..[[
+actionList = {
+    move = {
+        stay={0,0,0},
+        northWest={-speed,0,speed},
+        north={0,0,speed},
+        northEast={speed,0,speed},
+        east={speed,0,0},
+        southEast={speed,0,-speed},
+        south={0,0,-speed},
+        southWest={-speed,0,-speed},
+        west={-speed,0,0}
+    },
+    attk1 = {
+        stay={0,0,0},
+        northWest={0,0,0},
+        north={0,0,0},
+        northEast={0,0,0},
+        east={0,0,0},
+        southEast={0,0,0},
+        south={0,0,0},
+        southWest={0,0,0},
+        west={0,0,0}
+    },
+    attk2 = {
+        stay={0,0,0},
+        northWest={-speed,0,speed},
+        north={0,0,speed},
+        northEast={speed,0,speed},
+        east={speed,0,0},
+        southEast={speed,0,-speed},
+        south={0,0,-speed},
+        southWest={-speed,0,-speed},
+        west={-speed,0,0}
+    },
+}
+function convertOrders(order)
+    return myPos + Vector(actionList[order])
+end]]
