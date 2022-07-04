@@ -12,6 +12,12 @@ function onScriptingButtonDown(index, player_color)
         return false
     elseif index == 8 then
         initializeActors()
+    elseif index == 6 then
+        if player_color == 'White' then
+            Player.White.changeColor('Red')
+            return
+        end
+        Player.Red.changeColor('White')
     end
 end
 
@@ -26,11 +32,11 @@ function onChat(message, player)
     elseif message == 'test' then
         for k,v in pairs(test) do
             --print(k..'\n')
-            local var, val = next(test,k)
+            local nextKey, nextValue= next(test,k)
             if next(test,k) == nil then
-                var, val = next(test)
+                nextKey, nextValue= next(test)
             end
-            print(var)
+            print(test[next])
         end
     end
 end
@@ -55,13 +61,13 @@ function initializeActors()--spawn and initialize the Actors for each seated pla
         })
         playerInfo[v] = {position=obj.getPosition(),object=obj,movesLeft=totalMoves,commandMode='move'}
         playerMoves[v] = {}
-        playerMovesCopy[v] = {}
+        processedMoves[v] = {}
         setStartUI(v)
     end
 end
 
 playerMoves = {}
-playerMovesCopy = {}
+processedMoves = {}
 
 speed = 2
 actionList = {
@@ -101,15 +107,16 @@ actionList = {
 }
 function convertActorMoves(actor, command)--convert player commands into coordinates to be evaluated
     log(command, 'convertActorMoves')
-    log(actor, 'Vector')
+    --log(actor, 'Vector')
     local vec1 = Vector(playerInfo[actor].position)
     local vec2 = Vector(actionList[command[1]][command[2]])
     return vec1 + vec2
 end
 
 function isMoveLegal(actor1, actor2, iteration) --checks to see if the Actor will collide with another initialized object
-    local actor1NewPosition = convertActorMoves(actor1[1],actor1[iteration])
-    local actor2NewPosition = convertActorMoves(actor2[1],actor2[iteration])
+
+    local actor1NewPosition = convertActorMoves(actor1[1],actor1[2][iteration])
+    local actor2NewPosition = convertActorMoves(actor2[1],actor2[2][iteration])
     if actor1[1] == 'White' then
     end
     return actor1NewPosition ~= actor2NewPosition and actor1NewPosition ~= playerInfo[actor2[1]].position
@@ -117,40 +124,41 @@ end
 
 function applyMoves(moveData, iteration)
     for k,v in pairs(moveData) do
-        playerInfo[moveData[k]].position = convertActorMoves(moveData[k][1], moveData[k][iteration])
+        playerInfo[k].position = convertActorMoves(k, moveData[k][iteration])
     end
 end
 
 totalMoves = 5
 function checkMoves()--loops over the moves made by the players and the list of initialized objects to see if there are any collisions
-    log('Array Cloned')
-    log(playerMoves)
+    --log(playerMoves)
     for i=1,totalMoves do
-        for k,v in pairs(playerMoves) do
-            log('Loop Iterated: '..k)
-            local var, val = next(playerMoves,k)
-            log(var, 'var')
-            log(val, 'val')
-            if next(playerMoves,k) == nil then
-                var, val = next(playerMoves)
+        for key,value in pairs(playerMoves) do
+            --log('Loop Iterated: '..k)
+            local nextKey,nextValue = next(playerMoves,key)
+            if nextKey == nil then
+                nextKey,nextValue = next(playerMoves)
             end
-            if not isMoveLegal(playerMoves[k],playerMoves[next],i) then
-                playerMovesCopy[k][i] = 'stay'
+            --log(playerMoves[key])
+            if not isMoveLegal({key,playerMoves[key]},{nextKey,playerMoves[nextKey]},i) then
+                processedMoves[key][i] = {'move','stay'}
             end
         end
-        applyMoves(playerMovesCopy,i)
+        applyMoves(processedMoves,i)
     end
     controlActors()
 end
 
 function controlActors()--sends confirmed actions to the Actors
-    for k,v in pairs(playerMovesCopy) do
-        playerInfo[playerMovesCopy[k][1]].object.call('getCall',v)
+    for k,v in pairs(processedMoves) do
+        playerInfo[k].object.call('getCall',v)
+        playerMoves[k]={}
+        processedMoves[k]={ }
         Wait.time(function()
-        playerInfo[playerMovesCopy[k][1]].movesLeft = 5
-        Global.UI.setValue(playerMovesCopy[k][1],'Moves Left '..playerMovesCopy[k][1]..': '..playerInfo[playerMovesCopy[k][1]].movesLeft)
+            playerInfo[k].movesLeft = 5
+            Global.UI.setValue(k,'Moves Left '..k..': '..playerInfo[k].movesLeft)
         end, 5, 1)
     end
+    log(playerMoves)
 end
 
 function cmdInput(player,_,idValue)
@@ -161,9 +169,9 @@ function cmdInput(player,_,idValue)
     end
     for k,v in pairs(playerMoves) do
         if k == player.color and actor.movesLeft > 0 then
-            log(playerMoves)
+            --log(playerMoves)
             table.insert(playerMoves[k],{actor.commandMode,idValue})
-            table.insert(playerMovesCopy[k],{actor.commandMode,idValue})
+            table.insert(processedMoves[k],{actor.commandMode,idValue})
             actor.movesLeft = actor.movesLeft - 1
             Global.UI.setValue(player.color,'Moves Left '..player.color..': '..actor.movesLeft)
             break
@@ -279,7 +287,6 @@ function onLoad(save_state)
 end
 
 function getCall(orders)
-    table.remove(orders,1)
     local i = 1
     Wait.time (function()
         myPos = convertOrders(orders[i])
@@ -325,5 +332,5 @@ actionList = {
     },
 }
 function convertOrders(order)
-    return myPos + Vector(actionList[order])
+    return myPos + Vector(actionList[ order[1] ][ order[2] ])
 end]]
